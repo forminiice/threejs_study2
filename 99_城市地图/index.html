@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+    #box {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="box" class="container"></div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "FontLoader": "../node_modules/three/examples/jsm/loaders/FontLoader.js",
+        "ParametricGeometry": "../node_modules/three/examples/jsm/geometries/ParametricGeometry.js",
+        "TextGeometry": "../node_modules/three/examples/jsm/geometries/TextGeometry.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "ZThree": "./three/ZThree.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { FontLoader } from 'FontLoader';
+    import { ParametricGeometry } from 'ParametricGeometry';
+    import { TextGeometry } from 'TextGeometry';
+    import { OrbitControls } from 'OrbitControls';
+
+    import ZThree from "ZThree";
+
+    function initZThree() {
+      app = new ZThree("box");
+      app.initThree();
+      app.initHelper();
+      app.initOrbitControls();
+      app.initLight();
+      window.app = app;
+      camera = app.camera;
+      scene = app.scene;
+      renderer = app.renderer;
+      controls = app.controls;
+      clock = new THREE.Clock();
+      camera.position.set(300, 300, 300);
+      renderer.render(scene, camera);
+      animate();
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+        controls.update();
+      }
+    }
+
+    let app, camera, scene, renderer, controls, clock, cityModel;
+    initZThree();
+
+  </script>
+</body>
+</html>

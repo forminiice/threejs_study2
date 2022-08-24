@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>场景图</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+    import GUI from '../node_modules/lil-gui/dist/lil-gui.esm.min.js';
+    const gui = new GUI();
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      console.log()
+
+      // 创建相机实例
+      const fov = 75;
+      const aspect = window.innerWidth / window.innerHeight;  // 相机默认值为2
+      const near = 5;
+      const far = 200;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      camera.position.set(0, 50, 0);  // 相机位置
+      camera.up.set(0, 0, 1); // 指定相机以哪个方向为上方，默认y轴为上方(0,1,0)
+      camera.lookAt(0, 0, 0); // 看向哪边
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      
+      // 创建点光，并添加到场景中
+      {
+        const color = 0xffffff;
+        const intensity = 3;
+        const light = new THREE.PointLight(color, intensity);
+        scene.add(light);
+      }
+      
+      // 要更新旋转角度的对象数组
+      const objects = [];
+      
+      // 一球多用
+      const radius = 1;
+      const widthSegments = 6;
+      const heightSegments = 6;
+      const sphereGeometry = new THREE.SphereGeometry(
+        radius,
+        widthSegments,
+        heightSegments
+      );
+      
+      // 创建一个空的场景节点，与太阳在同一个中心点
+      const solarSystem = new THREE.Object3D();
+      scene.add(solarSystem);
+      objects.push(solarSystem);
+
+      // 太阳
+      const sunMaterial = new THREE.MeshPhongMaterial({ emissive: 0xffff00 });
+      const sunMesh = new THREE.Mesh(sphereGeometry, sunMaterial);
+      sunMesh.scale.set(5, 5, 5); // 扩大太阳的大小
+      solarSystem.add(sunMesh);
+      objects.push(sunMesh);
+
+      // 创建一个空的场景节点 与地球在同一个中心点
+      const earthOrbit = new THREE.Object3D();
+      earthOrbit.position.x = 10;
+      solarSystem.add(earthOrbit);
+      objects.push(earthOrbit);
+      
+      // 地球
+      const earthMaterial = new THREE.MeshPhongMaterial({
+        color: 0x2233ff,
+        emissive: 0x112244,
+      });
+      const earthMesh = new THREE.Mesh(sphereGeometry, earthMaterial);
+      earthOrbit.add(earthMesh);
+      objects.push(earthMesh);
+      
+      // 月球场景，与月球在同一个中心点
+      const moonOrbit = new THREE.Object3D();
+      moonOrbit.position.x = 2;
+      earthOrbit.add(moonOrbit);
+      
+      // 月球
+      const moonMaterial = new THREE.MeshPhongMaterial({color: 0x888888, emissive: 0x222222});
+      const moonMesh = new THREE.Mesh(sphereGeometry, moonMaterial);
+      moonMesh.scale.set(.5, .5, .5);
+      moonOrbit.add(moonMesh);
+      objects.push(moonMesh);
+
+      // // 为每个节点添加一个AxesHelper （x:红，y:绿，z:蓝）
+      // objects.forEach((node) => {
+      //   const axes = new THREE.AxesHelper();
+      //   axes.material.depthTest = false;
+      //   axes.renderOrder = 1;
+      //   node.add(axes);
+      // });
+
+      // 添加控制器
+      const controls = new OrbitControls( camera, renderer.domElement );
+
+      // 添加坐标系辅助对象
+      // 用于简单模拟3个坐标轴的对象.
+      // 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 100 );
+      scene.add( axesHelper );
+
+      // 使用lil-gui库---------------------------------------------
+      {
+        // 打开/关闭轴和网格的可见性
+        // lil-gui 要求一个返回类型为bool型的属性
+        // 来创建一个复选框，所以我们为 `visible`属性
+        // 绑定了一个setter 和 getter。 从而让lil-gui
+        // 去操作该属性.
+        class AxisGridHelper {
+          constructor(node, units = 10) {
+            const axes = new THREE.AxesHelper();
+            axes.material.depthTest = false;
+            axes.renderOrder = 2; // 在网格渲染之后再渲染
+            node.add(axes);
+        
+            const grid = new THREE.GridHelper(units, units);
+            grid.material.depthTest = false;
+            grid.renderOrder = 1;
+            node.add(grid);
+        
+            this.grid = grid;
+            this.axes = axes;
+            this.visible = false;
+          }
+          get visible() {
+            return this._visible;
+          }
+          set visible(v) {
+            this._visible = v;
+            this.grid.visible = v;
+            this.axes.visible = v;
+          }
+        }
+        
+        function makeAxisGrid(node, label, units) {
+          const helper = new AxisGridHelper(node, units);
+          gui.add(helper, 'visible').name(label);
+        }
+        
+        makeAxisGrid(solarSystem, 'solarSystem', 25);
+        makeAxisGrid(sunMesh, 'sunMesh');
+        makeAxisGrid(earthOrbit, 'earthOrbit');
+        makeAxisGrid(earthMesh, 'earthMesh');
+        makeAxisGrid(moonOrbit, 'moonOrbit');
+        makeAxisGrid(moonMesh, 'moonMesh');
+      }
+      // 旋转
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+
+        objects.forEach((obj) => {
+          obj.rotation.y = time;
+        });
+
+        controls.update();
+        renderer.render(scene, camera);
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+      
+      // 设置renderer大小
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      // 监听窗口改变，实时修改画布大小
+      window.addEventListener('resize', ()=>{
+        renderer.setSize(window.innerWidth, window.innerHeight)
+        camera.aspect = window.innerWidth / window.innerHeight
+
+        // update project matrix
+        camera.updateProjectionMatrix()
+      })
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(geometry, color, x) {
+        const material = new THREE.MeshPhongMaterial({color});
+      
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+      
+        return cube;
+      }
+    }
+  </script>
+</body>
+</html>

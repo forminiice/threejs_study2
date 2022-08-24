@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hell cube</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import * as THREE from '../node_modules/three/build/three.module.js';
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      console.log()
+
+      // 创建相机实例
+      const fov = 75;
+      const aspect = window.innerWidth / window.innerHeight;  // 相机默认值为2
+      const near = 0.1;
+      const far = 5;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      
+      // 摄像机默认指向Z轴负方向，上方向朝向Y轴正方向。
+      // 我们将会把立方体放置在坐标原点，所以我们需要往后移一下摄像机才能显示出物体。
+      camera.position.z = 2;
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      
+      // 创建平行光，并添加到场景中
+      const color = 0xFFFFFF;
+      const intensity = 1;
+      const light = new THREE.DirectionalLight(color, intensity);
+      light.position.set(-1, 2, 4);
+      scene.add(light);
+
+      // 创建一个立方几何体
+      const boxWidth = 1;
+      const boxHeight = 1;
+      const boxDepth = 1;
+      const geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+
+      // 创建一个材质
+      // const material = new THREE.MeshBasicMaterial({color: 0x44aa88});
+      // 更换材质，使其受灯光影响
+      const material = new THREE.MeshPhongMaterial({color: 0x44aa88});  // 绿蓝色
+
+      // 创建一个网格对象，传入几何体和材质
+      const cube = new THREE.Mesh(geometry, material);
+
+      // 将网格添加到场景中
+      scene.add(cube);
+
+      // 将场景和摄像机传递给渲染器来渲染出整个场景
+      renderer.render(scene, camera);
+
+      // 立方数组
+      // const cubes = [
+      //   makeInstance(geometry, 0x44aa88,  0),
+      //   makeInstance(geometry, 0x8844aa, -2),
+      //   makeInstance(geometry, 0xaa8844,  2),
+      // ];
+      
+      // 旋转立方体
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+ 
+        cube.rotation.x = time;
+        cube.rotation.y = time;
+
+        // cubes.forEach((cube, ndx) => {
+        //   const speed = 1 + ndx * .1;
+        //   const rot = time * speed;
+        //   cube.rotation.x = rot;
+        //   cube.rotation.y = rot;
+        // });
+      
+        renderer.render(scene, camera);
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(geometry, color, x) {
+        const material = new THREE.MeshPhongMaterial({color});
+      
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+      
+        return cube;
+      }
+    }
+  </script>
+</body>
+</html>
