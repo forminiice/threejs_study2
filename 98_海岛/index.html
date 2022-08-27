@@ -5,8 +5,355 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
 </head>
 <body>
-  
+  <canvas class="webgl"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "GLTFLoader": "../node_modules/three/examples/jsm/loaders/GLTFLoader.js",
+        "Water": "../node_modules/three/examples/jsm/objects/Water.js",
+        "Sky": "../node_modules/three/examples/jsm/objects/Sky.js",
+        "tween": "../node_modules/three/examples/jsm/libs/tween.module.min.js",
+        "Lensflare": "../node_modules/three/examples/jsm/objects/Lensflare.js",
+        "animations": "./utils/animations.js"
+      }
+    }
+  </script>
+  <script type="module">
+    // 案例来源 https://github.com/dragonir/3d
+    
+    // import * as THREE from 'three';
+    // import { FontLoader } from 'FontLoader';
+    // import { ParametricGeometry } from 'ParametricGeometry';
+    // import { TextGeometry } from 'TextGeometry';
+    // import { OrbitControls } from 'OrbitControls';
+
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+    import { GLTFLoader } from "GLTFLoader";
+    import { Water } from 'Water';
+    import { Sky } from 'Sky';
+    import { TWEEN } from "tween";
+    import { Lensflare, LensflareElement } from "Lensflare";
+    import Animations from 'animations';
+    // import waterTexture from './images/waternormals.jpg';
+    // import islandModel from './models/island.glb';
+    // import flamingoModel from './models/flamingo.glb';
+    // import vertexShader from './shaders/rainbow/vertex.glsl';
+    // import fragmentShader from './shaders/rainbow/fragment.glsl';
+
+    // 设置状态
+    const setState = () => {
+      return;
+    }
+
+    const initThree = () => {
+      // 创建Three时钟对象，用于对时间的操作
+      const clock = new THREE.Clock();
+
+      // 定义宽高大小
+      const sizes = {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+
+      let mixers = [];
+
+      // 初始化WebGL渲染器，绑定canvas元素
+      const renderer = new THREE.WebGLRenderer({
+        canvas: document.querySelector('canvas.webgl'),
+        antialias: true
+      });
+      // 设置渲染像素比 设置设备像素比。通常用于避免HiDPI设备上绘图模糊
+      // Window.devicePixelRatio 返回当前显示设备的物理像素分辨率与CSS 像素分辨率之比
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // 设置渲染宽高
+      renderer.setSize(sizes.width, sizes.height);
+      // 渲染器 色调映射(页面渲染效果) 设置为 ACESFilmicToneMapping 电影色调映射
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+      // 创建场景实例
+      const scene = new THREE.Scene();
+      // 创建透视相机实例（类似人眼看到的效果），设置相应参数 -> fov(视场角) aspect(视锥体长宽比) near(所能看到的最近距离) far(所能看到的最远距离)
+      const camera = new THREE.PerspectiveCamera(55, sizes.width / sizes.height, 1, 20000);
+      // 设置相机 机位
+      camera.position.set(0, 600, 1600);
+
+      // 创建轨道控件实例
+      const controls = new OrbitControls(camera, renderer.domElement);
+      // 设置控件围绕的旋转的中心点
+      controls.target.set(0, 0, 0);
+      // 启用阻尼（惯性）
+      controls.enableDamping = true;
+      // 禁止相机平移
+      controls.enablePan = false;
+      // 垂直旋转角度上限  范围是0到Math.PI 默认值为Math.PI
+      controls.maxPolarAngle = 1.5;
+      // 你能够将相机向内移动多少（仅适用于PerspectiveCamera），其默认值为0。
+      controls.minDistance = 50;
+      // 你能够将相机向外移动多少（仅适用于PerspectiveCamera），其默认值为Infinity。
+      controls.maxDistance = 1200;
+      
+      // 场景光
+      const ambientLight = new THREE.AmbientLight(0xffffff, .8);
+      scene.add(ambientLight);
+
+      // 平行光  position 到 target的位置 方向的光
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      // 设置颜色
+      dirLight.color.setHSL(.1, 1, .95);
+      // 设置位置
+      dirLight.position.set(-1, 1.75, 1);
+      // multiplyScalar向量乘以标量，重设position
+      dirLight.position.multiplyScalar(30);
+      // console.log("position", dirLight.position)
+      scene.add(dirLight);
+      
+      // 太阳点光源
+      const pointLight = new THREE.PointLight(0xffffff, 1.2, 2000);
+      pointLight.color.setHSL(.995, .5, .9);
+      pointLight.position.set(0, 45, -2000);
+      // 纹理加载器
+      const textureLoader = new THREE.TextureLoader();
+      const textureFlare0 = textureLoader.load('./images/lensflare0.png');
+      const textureFlare1 = textureLoader.load('./images/lensflare1.png');
+      // 创建镜头光晕实例 基类Mesh
+      const lensflare = new Lensflare();
+      // 创建镜头光晕元素实例并添加到镜头光晕实例中
+      lensflare.addElement(new LensflareElement( textureFlare0, 600, 0, pointLight.color));
+      lensflare.addElement(new LensflareElement( textureFlare1, 60, .6));
+      lensflare.addElement(new LensflareElement( textureFlare1, 70, .7));
+      lensflare.addElement(new LensflareElement( textureFlare1, 120, .9));
+      lensflare.addElement(new LensflareElement( textureFlare1, 70, 1));
+      // 将镜头光晕添加到点光源中
+      pointLight.add(lensflare);
+      // 点光源添加到场景中
+      scene.add(pointLight);
+
+      // 监听窗口改变，实时改变渲染大小、比例
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }, false);
+
+      // 海
+      // 创建平面缓冲几何体
+      const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+      // 创建水实例 贴上水材质贴图
+      const water = new Water(waterGeometry, {
+        textureWidth: 512,  // 材质宽
+        textureHeight: 512, // 材质高
+        // 水波纹
+        waterNormals: new THREE.TextureLoader().load("./images/waternormals.jpg",  texture => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        }),
+        sunDirection: new THREE.Vector3(),  // 阳光方向
+        sunColor: 0xffffff, // 阳光颜色
+        waterColor: 0x0072ff, // 水颜色
+        distortionScale: 4, // 物体倒影分散度
+        fog: scene.fog !== undefined  // 雾 Boolean
+      });
+      // 水面旋转角度
+      water.rotation.x = - Math.PI / 2;
+      scene.add(water);
+
+      // 天空
+      // 创建天空实例
+      const sky = new Sky();
+
+      sky.scale.setScalar(10000);
+      scene.add(sky);
+      const skyUniforms = sky.material.uniforms;
+      // 操作内部着色器相关参数
+      skyUniforms['turbidity'].value = 20;  // 浑浊度
+      skyUniforms['rayleigh'].value = 2;    // 视觉效果就是傍晚晚霞的红光的深度
+      skyUniforms['mieCoefficient'].value = 0.005;  // 散射系数
+      skyUniforms['mieDirectionalG'].value = 0.8;   // 定向散射值
+
+      // 太阳
+      // 定义一个三维法向量坐标实例
+      const sun = new THREE.Vector3();
+
+      // PMREMGenerator 这个类从一个cubeMap环境纹理生成一个Prefiltered  纹理滤镜
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      // 将角度转换为弧度  180° -> Math.PI
+      const phi = THREE.MathUtils.degToRad(88);
+      const theta = THREE.MathUtils.degToRad(180);
+      // 从球坐标中的radius、phi和theta设置该向量
+      // radius - 半径值，或者说从该点到原点的 Euclidean distance（欧几里得距离，即直线距离）。默认值为1.0。
+      // phi - 与 y (up) 轴的极角（以弧度为单位）。 默认值为 0。
+      // theta - 绕 y (up) 轴的赤道角(方位角)（以弧度为单位）。 默认值为 0。
+      // 极角（phi）位于正 y 轴和负 y 轴上。赤道角(方位角)（theta）从正 z 开始。
+      sun.setFromSphericalCoords( 1, phi, theta );
+      
+      // 将sun坐标实例添加到sky、water实例中的阳光位置/方向 的参数中
+      sky.material.uniforms['sunPosition'].value.copy( sun );
+      water.material.uniforms['sunDirection'].value.copy(sun).normalize();
+      // 从提供的场景生成 PMREM，其获取材质对象
+      scene.environment = pmremGenerator.fromScene(sky).texture;
+
+      // 新建加载管理器 实例
+      const manager = new THREE.LoadingManager();
+      manager.onProgress = async(url, loaded, total) => {
+        if (Math.floor(loaded / total * 100) === 100) {
+          setState({ loadingProcess: Math.floor(loaded / total * 100) });
+          Animations.animateCamera(camera, controls, { x: 0, y: 40, z: 140 }, { x: 0, y: 0, z: 0 }, 4000, () => {
+            setState({ sceneReady: true });
+          });
+        } else {
+          setState({ loadingProcess: Math.floor(loaded / total * 100) });
+        }
+      };
+
+      // 岛
+      // 创建GLTFLoader加载器并传入加载管理器实例
+      const loader = new GLTFLoader(manager);
+      loader.load("./models/island.glb", mesh => {
+        console.log("gltf mesh", mesh)
+        mesh.scene.traverse(child => {
+          if (child.isMesh) {
+            child.material.metalness = .4;
+            child.material.roughness = .6;
+          }
+        })
+        // 组场景 group对象 设置位置、缩放
+        mesh.scene.position.set(0, -2, 0);
+        mesh.scene.scale.set(33, 33, 33);
+        scene.add(mesh.scene);
+      });
+
+      // 鸟
+      loader.load("./models/flamingo.glb", gltf => {
+        const mesh = gltf.scene.children[0];
+        // 设置模型缩放（大小）位置 旋转
+        mesh.scale.set(.35, .35, .35);
+        mesh.position.set(-100, 80, -300);
+        mesh.rotation.y = - 1;
+        // 对象是否被渲染到阴影贴图中。默认值为false  基类Object3D中的属性
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        const bird2 = mesh.clone();
+        bird2.position.set(150, 80, -500);
+        scene.add(bird2);
+
+        const mixer = new THREE.AnimationMixer(mesh);
+        // gltf.animations[0] -> 动画剪辑（AnimationClip）是一个可重用的关键帧轨道集
+        // AnimationClip.setDuration 设定动画持续时间，这里将会改变动画速度
+        // .paly 让混合器激活动作
+        mixer.clipAction(gltf.animations[0]).setDuration(1.2).play();
+        mixers.push(mixer);
+
+        const mixer2 = new THREE.AnimationMixer(bird2);
+        mixer2.clipAction(gltf.animations[0]).setDuration(1.8).play();
+        mixers.push(mixer2);
+      });
+
+      // // 虹
+      // const material = new THREE.ShaderMaterial({
+      //   side: THREE.DoubleSide,
+      //   transparent: true,
+      //   uniforms: {},
+      //   vertexShader: "./shaders/rainbow/vertex.glsl",
+      //   fragmentShader: "./shaders/rainbow/fragment.glsl"
+      // });
+      // const geometry = new THREE.TorusGeometry(200, 10, 50, 100);
+      // const torus = new THREE.Mesh(geometry, material);
+      // torus.opacity = .1;
+      // torus.position.set(0, -50, -400);
+      // scene.add(torus);
+
+      // // 点
+      // const raycaster = new THREE.Raycaster()
+      // const points = [
+      //   {
+      //     position: new THREE.Vector3(10, 46, 0),
+      //     element: document.querySelector('.point-0')
+      //   },
+      //   {
+      //     position: new THREE.Vector3(-10, 8, 24),
+      //     element: document.querySelector('.point-1')
+      //   },
+      //   {
+      //     position: new THREE.Vector3(30, 10, 70),
+      //     element: document.querySelector('.point-2')
+      //   },
+      //   {
+      //     position: new THREE.Vector3(-100, 50, -300),
+      //     element: document.querySelector('.point-3')
+      //   },
+      //   {
+      //     position: new THREE.Vector3(-120, 50, -100),
+      //     element: document.querySelector('.point-4')
+      //   }
+      // ];
+
+      
+      // 添加坐标系辅助对象
+      // 用于简单模拟3个坐标轴的对象.
+      // 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 100 );
+      scene.add( axesHelper );
+      
+      const animate = () => {
+        requestAnimationFrame(animate);
+        // threejs所谓的材质对象Material本质上就是着色器代码和需要传递的uniform数据(光源、颜色、矩阵…)。
+        // 源码中 通过glgs代码控制颜色、光源等属性的移动
+        // 设置水材质变量  Uniforms是所有顶点都具有相同的值的变量
+        water.material.uniforms[ 'time' ].value += 1.0 / 60.0;
+        // 控制器更新
+        controls && controls.update();
+        // 获取自 .oldTime 设置后到当前的秒数。 同时将 .oldTime 设置为当前时间
+        const delta = clock.getDelta();
+        mixers && mixers.forEach(item => {
+          item.update(delta);
+        });
+        const timer = Date.now() * 0.0005;
+        // 实现远景拉近的入场动画效果
+        TWEEN && TWEEN.update();
+
+        // 相机位置，随着时间的增加，根据正弦值改变 [-1, 1]
+        camera && (camera.position.y += Math.sin(timer) * .05);
+
+        // if (this.state.sceneReady) {
+        //   // 遍历每个点
+        //   for (const point of points) {
+        //     // 获取2D屏幕位置
+        //     const screenPosition = point.position.clone();
+        //     screenPosition.project(camera);
+        //     raycaster.setFromCamera(screenPosition, camera);
+        //     const intersects = raycaster.intersectObjects(scene.children, true);
+        //     if (intersects.length === 0) {
+        //       // 未找到相交点，显示
+        //       point.element.classList.add('visible');
+        //     } else {
+        //       // 找到相交点
+        //       // 获取相交点的距离和点的距离
+        //       const intersectionDistance = intersects[0].distance;
+        //       const pointDistance = point.position.distanceTo(camera.position);
+        //       // 相交点距离比点距离近，隐藏；相交点距离比点距离远，显示
+        //       intersectionDistance < pointDistance ? point.element.classList.remove('visible') :  point.element.classList.add('visible');
+        //     }
+        //     const translateX = screenPosition.x * sizes.width * 0.5;
+        //     const translateY = - screenPosition.y * sizes.height * 0.5;
+        //     point.element.style.transform = `translateX(${translateX}px) translateY(${translateY}px)`;
+        //   }
+        // }
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
+    initThree();
+  </script>
 </body>
 </html>
