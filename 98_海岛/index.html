@@ -10,10 +10,100 @@
       overflow: hidden;
       margin: 0;
     }
+    .ocean {
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+    }
+    .ocean .loading {
+      position: fixed;
+      height: 100%;
+      width: 100%;
+      z-index: 99;
+      background: rgba(46,66,77,0.8);
+      filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.25));
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .ocean .point {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 10;
+    }
+    .ocean .point .label {
+      position: absolute;
+      top: -16px;
+      left: -16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.467);
+      border: 1px solid rgba(255,255,255,0.467);
+      color: #fff;
+      font-family: Helvetica, Arial, sans-serif;
+      text-align: center;
+      line-height: 32px;
+      font-weight: 100;
+      font-size: 14px;
+      cursor: help;
+      transform: scale(0, 0);
+      transition: transform 0.3s;
+    }
+    .ocean .point .text {
+      position: absolute;
+      top: 30px;
+      left: -120px;
+      width: 200px;
+      padding: 20px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.467);
+      color: #fff;
+      line-height: 1.3em;
+      font-family: Helvetica, Arial, sans-serif;
+      font-weight: 100;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      text-align: justify;
+      text-align-last: left;
+    }
+    .ocean .point:hover .text {
+      opacity: 1;
+    }
+    .ocean .point.visible .label {
+      transform: scale(1, 1);
+    }
   </style>
 </head>
 <body>
-  <canvas class="webgl"></canvas>
+  <div class="ocean">
+    <canvas class="webgl"></canvas>
+    <div class="point point-0">
+      <div class="label label-0">1</div>
+      <div class="text">灯塔：矗立在海岸的岩石之上，白色的塔身以及红色的塔屋，在湛蓝色的天空和深蓝色大海的映衬下，显得如此醒目和美丽。</div>
+    </div>
+    <div class="point point-1">
+      <div class="label label-1">2</div>
+      <div class="text">小船：梦中又见那宁静的大海，我前进了，驶向远方，我知道我是船，只属于远方。这一天，我用奋斗作为白帆，要和明天一起飘扬，呼喊。</div>
+    </div>
+    <div class="point point-2">
+      <div class="label label-2">3</div>
+      <div class="text">沙滩：宇宙展开的一小角。不想说来这里是暗自疗伤，那过于矫情，只想对每一粒沙子，每一朵浪花问声你们好吗</div>
+    </div>
+    <div class="point point-3">
+      <div class="label label-3">4</div>
+      <div class="text">飞鸟：在苍茫的大海上，狂风卷集着乌云。在乌云和大海之间，海燕像黑色的闪电，在高傲地飞翔。</div>
+    </div>
+    <div class="point point-4">
+      <div class="label label-4">5</div>
+      <div class="text">礁石：寂寞又怎么样？礁石都不说话，但是水流过去之后，礁石留下。</div>
+    </div>
+  </div>
   <script type="importmap">
     {
       "imports": {
@@ -30,7 +120,7 @@
   </script>
   <script type="module">
     // 案例来源 https://github.com/dragonir/3d
-    
+
     // import * as THREE from 'three';
     // import { FontLoader } from 'FontLoader';
     // import { ParametricGeometry } from 'ParametricGeometry';
@@ -51,8 +141,11 @@
     // import vertexShader from './shaders/rainbow/vertex.glsl';
     // import fragmentShader from './shaders/rainbow/fragment.glsl';
 
+    let state = {};
     // 设置状态
-    const setState = () => {
+    const setState = (option) => {
+      console.log("loadingProcess", option);
+      state = Object.assign({}, state, option);
       return;
     }
 
@@ -204,6 +297,7 @@
 
       // 新建加载管理器 实例
       const manager = new THREE.LoadingManager();
+      // 监听进度
       manager.onProgress = async(url, loaded, total) => {
         if (Math.floor(loaded / total * 100) === 100) {
           setState({ loadingProcess: Math.floor(loaded / total * 100) });
@@ -219,7 +313,7 @@
       // 创建GLTFLoader加载器并传入加载管理器实例
       const loader = new GLTFLoader(manager);
       loader.load("./models/island.glb", mesh => {
-        console.log("gltf mesh", mesh)
+        // console.log("gltf mesh", mesh)
         mesh.scene.traverse(child => {
           if (child.isMesh) {
             child.material.metalness = .4;
@@ -247,6 +341,7 @@
         bird2.position.set(150, 80, -500);
         scene.add(bird2);
 
+        // 动画混合器 用于场景中特定对象的动画的播放器
         const mixer = new THREE.AnimationMixer(mesh);
         // gltf.animations[0] -> 动画剪辑（AnimationClip）是一个可重用的关键帧轨道集
         // AnimationClip.setDuration 设定动画持续时间，这里将会改变动画速度
@@ -259,45 +354,66 @@
         mixers.push(mixer2);
       });
 
-      // // 虹
-      // const material = new THREE.ShaderMaterial({
-      //   side: THREE.DoubleSide,
-      //   transparent: true,
-      //   uniforms: {},
-      //   vertexShader: "./shaders/rainbow/vertex.glsl",
-      //   fragmentShader: "./shaders/rainbow/fragment.glsl"
-      // });
-      // const geometry = new THREE.TorusGeometry(200, 10, 50, 100);
-      // const torus = new THREE.Mesh(geometry, material);
-      // torus.opacity = .1;
-      // torus.position.set(0, -50, -400);
-      // scene.add(torus);
+      // 虹
+      // 使用自定义shader渲染的材质 GLSL 着色器语言编写的小程序
+      const material = new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        uniforms: {},
+        // 顶点着色器
+        vertexShader: `
+          varying vec2 vUV;
+          varying vec3 vNormal;
 
-      // // 点
-      // const raycaster = new THREE.Raycaster()
-      // const points = [
-      //   {
-      //     position: new THREE.Vector3(10, 46, 0),
-      //     element: document.querySelector('.point-0')
-      //   },
-      //   {
-      //     position: new THREE.Vector3(-10, 8, 24),
-      //     element: document.querySelector('.point-1')
-      //   },
-      //   {
-      //     position: new THREE.Vector3(30, 10, 70),
-      //     element: document.querySelector('.point-2')
-      //   },
-      //   {
-      //     position: new THREE.Vector3(-100, 50, -300),
-      //     element: document.querySelector('.point-3')
-      //   },
-      //   {
-      //     position: new THREE.Vector3(-120, 50, -100),
-      //     element: document.querySelector('.point-4')
-      //   }
-      // ];
+          void main () {
+            vUV = uv;
+            vNormal = vec3(normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        // 片段着色器
+        fragmentShader: `
+          varying vec2 vUV;
+          varying vec3 vNormal;
 
+          void main () {
+            vec4 c = vec4(abs(vNormal) + vec3(vUV, 0.0), 0.1);
+            gl_FragColor = c;
+          }
+        `
+      });
+      // 圆环缓冲几何体 生成圆环几何体
+      const geometry = new THREE.TorusGeometry(200, 10, 50, 100);
+      const torus = new THREE.Mesh(geometry, material);
+      torus.opacity = .1;
+      torus.position.set(0, -50, -400);
+      scene.add(torus);
+
+      // 点
+      // 创建 raycasting（光线投射）实例，此处用于判断点是否呗模型遮挡
+      const raycaster = new THREE.Raycaster()
+      const points = [
+        {
+          position: new THREE.Vector3(10, 46, 0),
+          element: document.querySelector('.point-0')
+        },
+        {
+          position: new THREE.Vector3(-10, 8, 24),
+          element: document.querySelector('.point-1')
+        },
+        {
+          position: new THREE.Vector3(30, 10, 70),
+          element: document.querySelector('.point-2')
+        },
+        {
+          position: new THREE.Vector3(-100, 50, -300),
+          element: document.querySelector('.point-3')
+        },
+        {
+          position: new THREE.Vector3(-120, 50, -100),
+          element: document.querySelector('.point-4')
+        }
+      ];
       
       // 添加坐标系辅助对象
       // 用于简单模拟3个坐标轴的对象.
@@ -325,30 +441,40 @@
         // 相机位置，随着时间的增加，根据正弦值改变 [-1, 1]
         camera && (camera.position.y += Math.sin(timer) * .05);
 
-        // if (this.state.sceneReady) {
-        //   // 遍历每个点
-        //   for (const point of points) {
-        //     // 获取2D屏幕位置
-        //     const screenPosition = point.position.clone();
-        //     screenPosition.project(camera);
-        //     raycaster.setFromCamera(screenPosition, camera);
-        //     const intersects = raycaster.intersectObjects(scene.children, true);
-        //     if (intersects.length === 0) {
-        //       // 未找到相交点，显示
-        //       point.element.classList.add('visible');
-        //     } else {
-        //       // 找到相交点
-        //       // 获取相交点的距离和点的距离
-        //       const intersectionDistance = intersects[0].distance;
-        //       const pointDistance = point.position.distanceTo(camera.position);
-        //       // 相交点距离比点距离近，隐藏；相交点距离比点距离远，显示
-        //       intersectionDistance < pointDistance ? point.element.classList.remove('visible') :  point.element.classList.add('visible');
-        //     }
-        //     const translateX = screenPosition.x * sizes.width * 0.5;
-        //     const translateY = - screenPosition.y * sizes.height * 0.5;
-        //     point.element.style.transform = `translateX(${translateX}px) translateY(${translateY}px)`;
-        //   }
-        // }
+        // 如果地图加载完成
+        if (state.sceneReady) {
+          // 遍历每个点
+          for (const point of points) {
+            // 获取2D屏幕位置 (三维向量)
+            const screenPosition = point.position.clone();
+            // 设置该点 在投影中使用的摄像机
+            screenPosition.project(camera);
+            // 使用一个新的原点和方向来更新射线
+            // 在标准化设备坐标中鼠标的二维坐标 —— X分量与Y分量应当在-1到1之间 screenPosition
+            // 射线所来源的摄像机 camera
+            raycaster.setFromCamera(screenPosition, camera);
+            // 检测所有在射线与这些物体之间，包括或不包括后代的相交部分。返回结果时，相交部分将按距离进行排序，最近的位于第一个
+            // 参数一 objects 检测和射线相交的一组物体。 这里传入的是整个场景中所有的物体对象（数组）
+            // 参数二 recursive 若为true，则同时也会检测所有物体的后代。否则将只会检测对象本身的相交部分。默认值为true。
+            // 参数三 optionalTarget 设置结果的目标数组。如果不设置这个值，则一个新的Array会被实例化；如果设置了这个值，则在每次调用之前必须清空这个数组（例如：array.length = 0;）。
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length === 0) {
+              // 未找到相交点，显示
+              point.element.classList.add('visible');
+            } else {
+              // 找到相交点
+              // 获取相交点的距离和点的距离
+              const intersectionDistance = intersects[0].distance;
+              const pointDistance = point.position.distanceTo(camera.position);
+              // 相交点距离比点距离近，隐藏；相交点距离比点距离远，显示
+              intersectionDistance < pointDistance ? point.element.classList.remove('visible') :  point.element.classList.add('visible');
+            }
+            // 设置point的位置
+            const translateX = screenPosition.x * sizes.width * 0.5;
+            const translateY = - screenPosition.y * sizes.height * 0.5;
+            point.element.style.transform = `translateX(${translateX}px) translateY(${translateY}px)`;
+          }
+        }
         renderer.render(scene, camera);
       }
       animate();
