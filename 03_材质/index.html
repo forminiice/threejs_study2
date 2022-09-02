@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      // 设置渲染宽高
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // 创建相机实例
+      const fov = 75;
+      const aspect = window.innerWidth / window.innerHeight;  // 相机默认值为2
+      const near = 0.1;
+      const far = 999;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      
+      // 摄像机默认指向Z轴负方向，上方向朝向Y轴正方向。
+      camera.up.x = 0;//相机以哪个方向为上方
+      camera.up.y = 1;
+      camera.up.z = 0;
+      // 我们将会把立方体放置在坐标原点，所以我们需要往后移一下摄像机才能显示出物体。
+      camera.position.z = 10;
+      // camera.position.y = 10;
+
+      // 创建控制器
+      const controls = new OrbitControls( camera, renderer.domElement );
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      // scene.background = new THREE.Color(0xAAAAAA);
+
+      // 创建辅助坐标轴 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 5 );
+      scene.add(axesHelper);
+      
+      // 创建平行光，并添加到场景中
+      const color = 0xFFFFFF;
+      const intensity = 2;
+      const light = new THREE.DirectionalLight(color, intensity);
+      const ambientLight = new THREE.AmbientLight(color);
+      light.position.set(-1, 2, 4);
+      scene.add(light);
+      scene.add(ambientLight);
+      
+      // 将场景和摄像机传递给渲染器来渲染出整个场景
+      renderer.render(scene, camera);
+
+      // 创建一个立方几何体
+      const boxWidth = 1;
+      const boxHeight = 1;
+      const boxDepth = 1;
+      const geometry = new THREE.SphereGeometry();
+
+      
+      // THREE.Color 类型的属性有多种设置方式
+      // material.color.set(0x00FFFF);    // 同 CSS的 #RRGGBB 风格
+      // material.color.set(cssString);   // 任何 CSS 颜色字符串, 比如 'purple', '#F32',
+      //                                 // 'rgb(255, 127, 64)',
+      //                                 // 'hsl(180, 50%, 25%)'
+      // material.color.set(someColor)    // 其他一些 THREE.Color
+      // material.color.setHSL(h, s, l)   // 其中 h, s, 和 l 从 0 到 1
+      // material.color.setRGB(r, g, b)   // 其中 r, g, 和 b 从 0 到 1
+
+      // 创建一个材质 基本网格材质 不受灯光影响
+      const material1 = new THREE.MeshBasicMaterial({color: 0x44aa88});
+
+      // 更换材质，使其受灯光影响
+      const material2 = new THREE.MeshPhongMaterial({color: 0x44aa88});  // 绿蓝色
+      // 实例化之后设置材质属性
+      material2.color.setHSL(0, 1, .2);  // 红色
+      material2.flatShading = true;
+      material2.shininess = 80;
+
+      // 一种非光泽表面的材质，没有镜面高光。性能较 MeshPhongMaterial 更好
+      const material3 = new THREE.MeshLambertMaterial({color: 0x44aa88});
+
+      // 实现卡通着色的材料。
+      const material4 = new THREE.MeshToonMaterial({color: 0x44aa88});
+
+      // 标准网格材质。一种基于物理的标准材质，使用Metallic-Roughness工作流程。
+      const material5 = new THREE.MeshStandardMaterial({color: 0x44aa88});
+      material5.roughness = 0;  // 粗糙度 0 - 1
+      material5.metalness = 0.8;  // 金属度 0 非金属 1 金属
+
+      // MeshStandardMaterial的扩展，提供了更高级的基于物理的渲染属性：
+      const material6 = new THREE.MeshPhysicalMaterial({color: 0x44aa88});
+      material6.roughness = 0;  // 粗糙度 0 - 1
+      material6.metalness = 0.8;  // 金属度 0 非金属 1 金属
+      material6.clearcoat = 1.0;  // 从0到1，决定了要涂抹的清漆光亮层的程度
+      material6.clearcoatRoughness = 0.0;  // 指定光泽层的粗糙程度
+
+      const material7 = new THREE.ShadowMaterial({color: 0x44aa88});
+      material7.opacity = 0.8;
+
+      // 立方数组
+      const spheres = [
+        makeInstance(material1, -2, 0),
+        makeInstance(material2, 0, 0),
+        makeInstance(material3, 2, 0),
+        makeInstance(material4, -2, -2),
+        makeInstance(material5, 0, -2),
+        makeInstance(material6, 2, -2),
+        makeInstance(material7, -2, -4),
+      ];
+      // 旋转立方体
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+
+        renderer.render(scene, camera);
+
+        controls.update();
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(material, x, y) {   
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+        cube.position.y = y;
+      
+        return cube;
+      }
+    }
+  </script>
+</body>
+</html>
