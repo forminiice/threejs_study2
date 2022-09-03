@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+    #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: start;
+        pointer-events: none;
+    }
+    #loading .progress {
+        margin: 1.5em;
+        border: 1px solid white;
+        width: 50vw;
+    }
+    #loading .progressbar {
+        margin: 2px;
+        background: white;
+        height: 1em;
+        transform-origin: top left;
+        transform: scaleX(0);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="loading">
+    <div class="progress"><div class="progressbar"></div></div>
+  </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+    import GUI from 'lil-gui';
+    import { DegRadHelper, StringToNumberHelper } from "./js/utils.js"
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      // 设置渲染宽高
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // 创建相机实例
+      const fov = 75;
+      const aspect = window.innerWidth / window.innerHeight;  // 相机默认值为2
+      const near = 0.1;
+      const far = 999;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      
+      // 摄像机默认指向Z轴负方向，上方向朝向Y轴正方向。
+      camera.up.x = 0;//相机以哪个方向为上方
+      camera.up.y = 1;
+      camera.up.z = 0;
+      // 我们将会把立方体放置在坐标原点，所以我们需要往后移一下摄像机才能显示出物体。
+      camera.position.z = 10;
+      // camera.position.y = 10;
+
+      // 创建控制器
+      const controls = new OrbitControls( camera, renderer.domElement );
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      // scene.background = new THREE.Color(0xAAAAAA);
+
+      // 创建辅助坐标轴 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 5 );
+      scene.add(axesHelper);
+      
+      // 创建平行光，并添加到场景中
+      const color = 0xFFFFFF;
+      const intensity = 2;
+      const light = new THREE.DirectionalLight(color, intensity);
+      const ambientLight = new THREE.AmbientLight(color);
+      light.position.set(-1, 2, 4);
+      scene.add(light);
+      scene.add(ambientLight);
+      
+      // 将场景和摄像机传递给渲染器来渲染出整个场景
+      renderer.render(scene, camera);
+
+      // 创建一个立方几何体
+      const boxWidth = 1;
+      const boxHeight = 1;
+      const boxDepth = 1;
+      const geometry = new THREE.BoxGeometry();
+
+      // 立方数组,render 旋转时使用
+      const cubes = [];
+
+      // 创建一个TextureLoader，材质加载器
+      const loader = new THREE.TextureLoader();
+
+      {
+        // 贴一张图
+        const material = new THREE.MeshBasicMaterial({
+          // 调用加载器的load方法，同时传入图像的URL，并将材质的 map 属性设置为该方法的返回值
+          map: loader.load('./images/wall.jpg')
+        });
+        cubes.push(makeInstance(material, 0, 0));
+      }
+
+      {
+        // 贴多张图
+        // 并不是所有的几何体类型都支持多种材质。
+        // BoxGeometry 和 BoxGeometry 可以使用6种材料，每个面一个。
+        // ConeGeometry 和 ConeGeometry 可以使用2种材料，一种用于底部，一种用于侧面。 
+        // CylinderGeometry 和 CylinderGeometry 可以使用3种材料，分别是底部、顶部和侧面。
+        // 对于其他情况，你需要建立或加载自定义几何体和（或）修改纹理坐标。
+        const material = [
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-1.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-2.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-3.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-4.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-5.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-6.jpg')}),
+        ];
+        cubes.push(makeInstance(material, 2, 0))
+      }
+
+      {
+        // 等待一个纹理加载
+        loader.load('./images/wall.jpg', (texture) => {
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+          });
+          const cube = makeInstance(material, 4, 0)
+          cubes.push(cube);  // 添加到我们要旋转的立方体数组中
+        });
+      }
+
+      {
+        // 等待多个纹理加载
+        const loadManager = new THREE.LoadingManager();
+        const loader = new THREE.TextureLoader(loadManager);
+
+        const loadingElem = document.querySelector('#loading');
+        const progressBarElem = loadingElem.querySelector('.progressbar');
+
+        const materials = [
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-1.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-2.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-3.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-4.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-5.jpg')}),
+          new THREE.MeshBasicMaterial({map: loader.load('./images/flower-6.jpg')}),
+        ];
+
+        // 监听加载完成
+        loadManager.onLoad = () => {
+          // loadingElem.style.display = 'none';
+          cubes.push(makeInstance(materials, 6, 0));
+        };
+
+        // 进度条
+        loadManager.onProgress = (urlOfLastItemLoaded, itemsLoaded, itemsTotal) => {
+          const progress = itemsLoaded / itemsTotal;
+          progressBarElem.style.transform = `scaleX(${progress})`;
+        };
+      }
+
+      {
+        // 过滤和mips
+        // Mips 是纹理的副本，每一个都是前一个 mip 的一半宽和一半高，
+        // 其中的像素已经被混合以制作下一个较小的 mip。Mips一直被创建，直到我们得到1x1像素的Mip。
+        const texture = loader.load('./images/mip-low-res-enlarged.png');
+        texture.magFilter = THREE.LinearFilter;
+        // texture.magFilter = THREE.NearestFilter;
+        
+        // texture.minFilter = THREE.NearestMipmapLinearFilter;
+        const material = new THREE.MeshBasicMaterial({
+          map: texture
+        });
+        cubes.push(makeInstance(material, 0, -2));
+      }
+
+      {
+        // 重复，偏移，旋转，包裹一个纹理
+        const texture = loader.load('./images/wall.jpg');
+
+        // 默认情况下，three.js中的纹理是不重复的。
+        // 要设置纹理是否重复，有2个属性，wrapS 用于水平包裹，wrapT 用于垂直包裹。
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        const timesToRepeatHorizontally = 4;
+        const timesToRepeatVertically = 2;
+        texture.repeat.set(timesToRepeatHorizontally, timesToRepeatVertically);
+
+        // 纹理的偏移可以通过设置 offset 属性来完成。
+        // 纹理的偏移是以单位为单位的，其中1个单位=1个纹理大小。
+        // 换句话说，0 = 没有偏移，1 = 偏移一个完整的纹理数量。
+        const xOffset = .5;   // offset by half the texture
+        const yOffset = .25;  // offset by 1/4 the texture
+        texture.offset.set(xOffset, yOffset);
+
+
+        // 使用 lil-gui 来提供一个简单的界面
+        const wrapModes = {
+          'ClampToEdgeWrapping': THREE.ClampToEdgeWrapping,
+          'RepeatWrapping': THREE.RepeatWrapping,
+          'MirroredRepeatWrapping': THREE.MirroredRepeatWrapping,
+        };
+        
+        function updateTexture() {
+          texture.needsUpdate = true;
+        }
+        
+        const gui = new GUI();
+        gui.add(new StringToNumberHelper(texture, 'wrapS'), 'value', wrapModes)
+          .name('texture.wrapS')
+          .onChange(updateTexture);
+        gui.add(new StringToNumberHelper(texture, 'wrapT'), 'value', wrapModes)
+          .name('texture.wrapT')
+          .onChange(updateTexture);
+        gui.add(texture.repeat, 'x', 0, 5, .01).name('texture.repeat.x');
+        gui.add(texture.repeat, 'y', 0, 5, .01).name('texture.repeat.y');
+        gui.add(texture.offset, 'x', -2, 2, .01).name('texture.offset.x');
+        gui.add(texture.offset, 'y', -2, 2, .01).name('texture.offset.y');
+        gui.add(texture.center, 'x', -.5, 1.5, .01).name('texture.center.x');
+        gui.add(texture.center, 'y', -.5, 1.5, .01).name('texture.center.y');
+        gui.add(new DegRadHelper(texture, 'rotation'), 'value', -360, 360)
+          .name('texture.rotation');
+
+        const material = new THREE.MeshBasicMaterial({
+          map: texture
+        });
+
+        cubes.push(makeInstance(material, 2, -2));
+      }
+
+      // 渲染
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+
+        cubes.forEach((cube, ndx) => {
+          const speed = .1 + ndx * .05;
+          const rot = time * speed;
+          cube.rotation.x = rot;
+          cube.rotation.y = rot;
+        });
+
+        renderer.render(scene, camera);
+
+        controls.update();
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(material, x, y) {   
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+        cube.position.y = y;
+      
+        return cube;
+      }
+    }
+
+    // 这只是进入纹理主题的一个步骤。在某些时候，我们将介绍纹理坐标以及其他9种可应用于材料的纹理类型。
+  </script>
+</body>
+</html>
