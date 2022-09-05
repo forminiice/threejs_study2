@@ -40,16 +40,3 @@ export class ColorGUIHelper {
     this.object[this.prop].set(hexString);
   }
 }
-// 提供一个可以以度数为单位进行操作的对象
-export class DegRadHelper {
-  constructor(obj, prop) {
-    this.obj = obj;
-    this.prop = prop;
-  }
-  get value() {
-    return THREE.MathUtils.radToDeg(this.obj[this.prop]);
-  }
-  set value(v) {
-    this.obj[this.prop] = THREE.MathUtils.degToRad(v);
-  }
-}
