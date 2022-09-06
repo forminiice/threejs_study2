@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "RectAreaLightUniformsLib": "../node_modules/three/examples/jsm/lights/RectAreaLightUniformsLib.js",
+        "RectAreaLightHelper": "../node_modules/three/examples/jsm/helpers/RectAreaLightHelper.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+    import GUI from 'lil-gui';
+    import { ColorGUIHelper, DegRadHelper } from "./js/utils.js"
+
+    // 为了使用 RectAreaLight，我们需要引入 three.js 的RectAreaLightUniformsLib 模块，同时使用 RectAreaLightHelper 来辅助查看灯光对象。
+    import { RectAreaLightUniformsLib } from 'RectAreaLightUniformsLib';
+    import { RectAreaLightHelper } from 'RectAreaLightHelper';
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      // 开启阴影
+      renderer.shadowMap.enabled = true;
+      // 设置渲染宽高
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // 创建相机实例const fov = 45;
+      const fov = 45;
+      const aspect = 2;  // canvas 的默认宽高 300:150
+      const near = 0.1;
+      const far = 100;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      camera.position.set(0, 10, 20);
+      // 摄像机默认指向Z轴负方向，上方向朝向Y轴正方向。
+      camera.up.x = 0;//相机以哪个方向为上方
+      camera.up.y = 1;
+      camera.up.z = 0;
+
+      // 创建控制器
+      const controls = new OrbitControls( camera, renderer.domElement );
+      controls.target.set(0, 5, 0);
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      // scene.background = new THREE.Color(0xAAAAAA);
+
+      // 创建辅助坐标轴 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 10 );
+      scene.add(axesHelper);
+
+      // 创建地面
+      const planeSize = 40;
+      // 加载纹理
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load('./images/checker.png');
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.magFilter = THREE.NearestFilter;
+      const repeats = planeSize / 2;
+      texture.repeat.set(repeats, repeats);
+      // 创建一个平面几何体，一个材质，再用这两个作为参数，创建一个 Mesh 对象并且添加到场景中。
+      const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+      const planeMat = new THREE.MeshStandardMaterial({
+        map: texture,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(planeGeo, planeMat);
+      mesh.receiveShadow = true;
+      mesh.rotation.x = Math.PI * -.5;
+      scene.add(mesh);
+
+      // 接着再添加一个立方体和一个球体，这样我们就有三个物体可以打光。
+      {
+        const cubeSize = 4;
+        const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const cubeMat = new THREE.MeshStandardMaterial({color: '#8AC'});
+        const mesh = new THREE.Mesh(cubeGeo, cubeMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(cubeSize + 1, cubeSize / 2, 0);
+        scene.add(mesh);
+      }
+      {
+        const sphereRadius = 3;
+        const sphereWidthDivisions = 32;
+        const sphereHeightDivisions = 16;
+        const sphereGeo = new THREE.SphereGeometry(sphereRadius, sphereWidthDivisions, sphereHeightDivisions);
+        const sphereMat = new THREE.MeshStandardMaterial({color: '#CA8'});
+        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(-sphereRadius - 1, sphereRadius + 2, 0);
+        scene.add(mesh);
+      }
+
+      {
+        const cubeSize = 30;
+        const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const cubeMat = new THREE.MeshPhongMaterial({
+          color: "#CCC",
+          side: THREE.BackSide,
+        });
+        const mesh = new THREE.Mesh(cubeGeo, cubeMat);
+        mesh.receiveShadow = true;
+        mesh.position.set(0, cubeSize / 2 - 0.1, 0);
+        scene.add(mesh);
+      }
+      
+      {
+        const color = 0xFFFFFF;
+        const intensity = 1;
+        // const light = new THREE.SpotLight(color, intensity);
+        const light = new THREE.PointLight(color, intensity);
+        light.castShadow = true;
+        light.position.set(0, 10, 0);
+        scene.add(light);
+        
+        // // 添加方向光辅助器 可以看到光线的方向
+        // const helper = new THREE.SpotLightHelper(light);
+        // scene.add(helper);
+        // 添加方向光辅助器 可以看到光线的方向
+        const helper = new THREE.PointLightHelper(light);
+        scene.add(helper);
+
+        // 光源更新
+        function updateLight() {
+          helper.update();
+        }
+
+        const gui = new GUI();
+        gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('颜色');
+        gui.add(light, 'intensity', 0, 2, 0.01).name('亮度');
+        // 如果 distance 设为 0，则光线可以照射到无限远处。如果大于 0，则只可以照射到指定的范围，光照强度在这个过程中逐渐衰减，在光源位置时，
+        gui.add(light, 'distance', 0, 40).onChange(updateLight).name('距离');
+        gui.add(new DegRadHelper(light, 'angle'), 'value', 0, 90).name('angle').onChange(updateLight);
+        // gui.add(light, 'penumbra', 0, 1, 0.01);
+        
+        makeXYZGUI(gui, light.position, 'position', updateLight);
+
+        // 通过 lil-gui 改变传入的 Vector3 类型对象的 x，y，和 z 的值
+        function makeXYZGUI(gui, vector3, name, onChangeFn) {
+          const folder = gui.addFolder(name);
+          folder.add(vector3, 'x', -10, 10).onChange(onChangeFn);
+          folder.add(vector3, 'y', 0, 10).onChange(onChangeFn);
+          folder.add(vector3, 'z', -10, 10).onChange(onChangeFn);
+          folder.open();
+        }
+      }
+
+      // 将场景和摄像机传递给渲染器来渲染出整个场景
+      renderer.render(scene, camera);
+
+      // 渲染
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+
+        renderer.render(scene, camera);
+
+        controls.update();
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(material, x, y) {   
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+        cube.position.y = y;
+      
+        return cube;
+      }
+    }
+  </script>
+</body>
+</html>

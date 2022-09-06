@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>document</title>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "RectAreaLightUniformsLib": "../node_modules/three/examples/jsm/lights/RectAreaLightUniformsLib.js",
+        "RectAreaLightHelper": "../node_modules/three/examples/jsm/helpers/RectAreaLightHelper.js",
+        "OrbitControls": "../node_modules/three/examples/jsm/controls/OrbitControls.js",
+        "lil-gui": "../node_modules/lil-gui/dist/lil-gui.esm.min.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'OrbitControls';
+    import GUI from 'lil-gui';
+    import { ColorGUIHelper, DegRadHelper } from "./js/utils.js"
+
+    // 为了使用 RectAreaLight，我们需要引入 three.js 的RectAreaLightUniformsLib 模块，同时使用 RectAreaLightHelper 来辅助查看灯光对象。
+    import { RectAreaLightUniformsLib } from 'RectAreaLightUniformsLib';
+    import { RectAreaLightHelper } from 'RectAreaLightHelper';
+
+    main();
+    
+    function main() {
+      // 创建渲染器实例，并绑定canvas
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({canvas});
+      // 设置渲染宽高
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // 创建相机实例const fov = 45;
+      const fov = 45;
+      const aspect = 2;  // canvas 的默认宽高 300:150
+      const near = 0.1;
+      const far = 100;
+      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+      camera.position.set(0, 10, 20);
+      // 摄像机默认指向Z轴负方向，上方向朝向Y轴正方向。
+      camera.up.x = 0;//相机以哪个方向为上方
+      camera.up.y = 1;
+      camera.up.z = 0;
+
+      // 创建控制器
+      const controls = new OrbitControls( camera, renderer.domElement );
+      controls.target.set(0, 5, 0);
+
+      // 创建场景
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("white");
+
+      // 创建辅助坐标轴 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+      const axesHelper = new THREE.AxesHelper( 10 );
+      scene.add(axesHelper);
+
+      const loader = new THREE.TextureLoader();
+
+      {
+        // 创建地面
+        const planeSize = 40;
+        // 加载纹理
+        const texture = loader.load('./images/checker.png');
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        const repeats = planeSize / 2;
+        texture.repeat.set(repeats, repeats);
+        // 创建一个平面几何体，一个材质，再用这两个作为参数，创建一个 Mesh 对象并且添加到场景中。
+        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMat = new THREE.MeshBasicMaterial({
+          map: texture,
+          side: THREE.DoubleSide,
+        });
+        planeMat.color.setRGB(1.5, 1.5, 1.5);
+        const mesh = new THREE.Mesh(planeGeo, planeMat);
+        mesh.rotation.x = Math.PI * -.5;
+        scene.add(mesh);
+      }
+
+      // 加载阴影贴图
+      const shadowTexture = loader.load("./images/roundshadow.png");
+      // 创建一个数组来存放每个球体和它相关的对象
+      const sphereShadowBases = [];
+      // 创建一个球体
+      const sphereRadius = 1;
+      const sphereWidthDivisions = 32;
+      const sphereHeightDivisions = 16;
+      const sphereGeo = new THREE.SphereGeometry(
+        sphereRadius,
+        sphereWidthDivisions,
+        sphereHeightDivisions
+      );
+      // 然后创建一个假阴影的平面网格
+      const planeSize = 1;
+      const shadowGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+
+      const numSpheres = 15;
+      for (let i = 0; i < numSpheres; ++i) {
+        // 创建已给Object3D对象，加入场景
+        const base = new THREE.Object3D();
+        scene.add(base);
+      
+        // 创建一个材质，加入阴影纹理
+        const shadowMat = new THREE.MeshBasicMaterial({
+          map: shadowTexture,
+          transparent: true, // so we can see the ground
+          depthWrite: false, // so we don't have to sort
+        });
+        // 创建一个基本网格，将阴影平面、阴影材质添加进去，
+        // 然后将基本网格对象添加到base对象中，阴影和球就能同步运动了
+        const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+        shadowMesh.position.y = 0.001; // so we're above the ground slightly
+        shadowMesh.rotation.x = Math.PI * -0.5;
+        const shadowSize = sphereRadius * 4;
+        shadowMesh.scale.set(shadowSize, shadowSize, shadowSize);
+        base.add(shadowMesh);
+      
+        // 添加球网格对象到base中
+        const u = i / numSpheres; // goes from 0 to 1 as we iterate the spheres.
+        const sphereMat = new THREE.MeshPhongMaterial();
+        sphereMat.color.setHSL(u, 1, 0.75);
+        const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+        sphereMesh.position.set(0, sphereRadius + 2, 0);
+        base.add(sphereMesh);
+      
+        // remember all 3 plus the y position
+        sphereShadowBases.push({
+          base,
+          sphereMesh,
+          shadowMesh,
+          y: sphereMesh.position.y,
+        });
+      }
+  
+      {
+        const skyColor = 0xB1E1FF;  // light blue
+        const groundColor = 0xB97A20;  // brownish orange
+        const intensity = 0.25;
+        const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        scene.add(light);
+      }
+
+      {
+        const color = 0xFFFFFF;
+        const intensity = 0.75;
+        const light = new THREE.DirectionalLight(color, intensity);
+        light.position.set(0, 10, 5);
+        light.target.position.set(-5, 0, 0);
+        scene.add(light);
+        scene.add(light.target);
+      }
+      
+      // 将场景和摄像机传递给渲染器来渲染出整个场景
+      renderer.render(scene, camera);
+
+      // 渲染
+      const render = time => {
+        time *= 0.001;  // 将时间单位变为秒
+
+        sphereShadowBases.forEach((sphereShadowBase, ndx) => {
+          const {base, sphereMesh, shadowMesh, y} = sphereShadowBase;
+      
+          // u is a value that goes from 0 to 1 as we iterate the spheres
+          const u = ndx / sphereShadowBases.length;
+      
+          // compute a position for the base. This will move
+          // both the sphere and its shadow
+          const speed = time * .2;
+          const angle = speed + u * Math.PI * 2 * (ndx % 1 ? 1 : -1);
+          const radius = Math.sin(speed - ndx) * 10;
+          base.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+      
+          // yOff is a value that goes from 0 to 1
+          const yOff = Math.abs(Math.sin(time * 2 + ndx));
+          // move the sphere up and down
+          sphereMesh.position.y = y + THREE.MathUtils.lerp(-2, 2, yOff);
+          // fade the shadow as the sphere goes up
+          shadowMesh.material.opacity = THREE.MathUtils.lerp(1, .25, yOff);
+        });
+
+        renderer.render(scene, camera);
+
+        controls.update();
+      
+        requestAnimationFrame(render);
+      }
+
+      requestAnimationFrame(render);
+
+      // 根据指定的颜色生成新材质，根据指定的几何体生成对应网格，然后将网格添加进场景并设置其X轴的位置。
+      function makeInstance(material, x, y) {   
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+      
+        cube.position.x = x;
+        cube.position.y = y;
+      
+        return cube;
+      }
+    }
+  </script>
+</body>
+</html>
