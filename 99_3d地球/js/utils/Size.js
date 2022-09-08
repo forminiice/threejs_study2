@@ -2,14 +2,13 @@ export default class Sizes {
   /**
    * Constructor
    */
-   constructor(options) {
+  constructor(options) {
     // Viewport size
     this.$sizeViewport = options.dom
 
-    this.viewport = {
-      width: 0,
-      height: 0
-    }
+    this.viewport = { width: 0, height: 0 }
+
+    this.resizeFuns = {}
 
     // Resize event
     this.resize = this.resize.bind(this)
@@ -17,7 +16,15 @@ export default class Sizes {
 
     this.resize()
   }
-  
+
+  onResize = (key, fun) => {
+    this.resizeFuns[key] = fun
+  }
+
+  offResize = (key) => {
+    delete this.resizeFuns[key]
+  }
+
   /**
    * Resize
    */
@@ -26,6 +33,9 @@ export default class Sizes {
     this.viewport.width = this.$sizeViewport.offsetWidth
     this.viewport.height = this.$sizeViewport.offsetHeight
 
-    this.emitter.emit('resize')
+    // 遍历调用所有Resize后需要调用的方法
+    for (const key in this.resizeFuns) {
+      this.resizeFuns[key]();
+    }
   }
 }
