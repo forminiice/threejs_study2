@@ -72,11 +72,11 @@ export default class World {
           endColor: 0xffffff, // 终点颜色
         },
       },
-      // flyLine: {
-      //   color: 0xf3ae76, // 飞线的颜色
-      //   flyLineColor: 0xff7714, // 飞行线的颜色
-      //   speed: 0.004, // 拖尾飞线的速度
-      // }
+      flyLine: {
+        color: 0xf3ae76, // 飞线的颜色
+        flyLineColor: 0xff7714, // 飞行线的颜色
+        speed: 0.004, // 拖尾飞线的速度
+      }
     })
 
     this.scene.add(this.earth.group)

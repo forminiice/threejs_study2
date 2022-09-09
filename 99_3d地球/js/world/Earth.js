@@ -9,6 +9,7 @@ import html2canvas from "html2canvas"
 
 
 import { createPointMesh, createLightPillar, createWaveMesh, getCirclePoints, createAnimateLine, lon2xyz } from "../Utils/common.js";
+import { flyArc } from "../Utils/arc.js";
 
 
 // 着色器相关代码
@@ -79,6 +80,7 @@ export default class Earth {
       await this.createMarkupPoint() // 创建柱状点位
       await this.createSpriteLabel() // 创建标签
       this.createAnimateCircle() // 创建环绕卫星
+      this.createFlyLine() // 创建飞线
       
       this.show()
       resolve()
@@ -402,6 +404,7 @@ export default class Earth {
     }))
   }
   
+  // 创建动画轨道卫星
   createAnimateCircle() {
     // 创建 圆环 点
     const list = getCirclePoints({
@@ -493,6 +496,33 @@ export default class Earth {
     }
   }
 
+  createFlyLine() {
+
+    this.flyLineArcGroup = new Group();
+    this.flyLineArcGroup.userData['flyLineArray'] = []
+    this.earthGroup.add(this.flyLineArcGroup)
+
+    this.options.data.forEach((cities) => {
+      cities.endArray.forEach(item => {
+
+        // 调用函数flyArc绘制球面上任意两点之间飞线圆弧轨迹
+        const arcline = flyArc(
+          this.options.earth.radius,
+          cities.startArray.E,
+          cities.startArray.N,
+          item.E,
+          item.N,
+          this.options.flyLine
+        );
+
+        this.flyLineArcGroup.add(arcline); // 飞线插入flyArcGroup中
+        this.flyLineArcGroup.userData['flyLineArray'].push(arcline.userData['flyLine'])
+      });
+
+    })
+
+  }
+
   // 显示动画
   show() {
     gsap.to(this.group.scale, {
@@ -534,5 +564,11 @@ export default class Earth {
     this.circleLineList.forEach((e) => {
       e.rotateY(this.options.satellite.rotateSpeed);
     });
+
+    // 飞线动画
+    this.flyLineArcGroup?.userData['flyLineArray']?.forEach(fly => {
+      fly.rotation.z += this.options.flyLine.speed; // 调节飞线速度
+      if (fly.rotation.z >= fly.flyEndAngle) fly.rotation.z = 0;
+    })
   }
 }
