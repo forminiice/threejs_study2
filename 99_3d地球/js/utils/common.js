@@ -1,4 +1,4 @@
-import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, DoubleSide, Group } from "three";
+import { Mesh, PlaneGeometry, TubeGeometry, MeshBasicMaterial, Vector3, DoubleSide, Group, CatmullRomCurve3 } from "three";
 
 
 /**
@@ -102,4 +102,47 @@ export const createWaveMesh = (options) => {
   const meshNormal = new Vector3(0, 0, 1);
   mesh.quaternion.setFromUnitVectors(meshNormal, coordVec3);
   return mesh;
+}
+
+// 获取点坐标数组
+export const getCirclePoints = (option) => {
+  const list = [];
+  for (
+    let j = 0;  // 定义该点的弧度
+    j < 2 * Math.PI - 0.1;  // 弧度小于360°
+    j += (2 * Math.PI) / (option.number || 100) // 每次弧度按切割份数叠加
+  ) {
+    // 计算该点的位置坐标，并添加到数组中
+    list.push([
+      parseFloat((Math.cos(j) * (option.radius || 10)).toFixed(2)),
+      0,
+      parseFloat((Math.sin(j) * (option.radius || 10)).toFixed(2)),
+    ]);
+  }
+  // 如果是闭合的，则将数组的第一位拼接到最后一位数组上
+  if (option.closed) list.push(list[0]);
+
+  return list;
+}
+
+/**
+ * 创建动态的线
+ */
+export const createAnimateLine = (option) => {
+  // 由多个点数组构成的曲线 通常用于道路
+  const l = [];
+  option.pointList.forEach((e) =>
+    l.push(new Vector3(e[0], e[1], e[2]))
+  );
+  // 使用Catmull-Rom算法， 从一系列的点创建一条平滑的三维样条曲线。
+  const curve = new CatmullRomCurve3(l); // 曲线路径
+
+  // 管道体
+  const tubeGeometry = new TubeGeometry(
+    curve,
+    option.number || 50,
+    option.radius || 1,
+    option.radialSegments
+  );
+  return new Mesh(tubeGeometry, option.material);
 }

@@ -27,6 +27,7 @@ export class Basic {
     this.renderer = new THREE.WebGLRenderer({
       alpha: true, // 透明
       antialias: true, // 抗锯齿
+      preserveDrawingBuffer: true,  // 是否保留缓直到手动清除或被覆盖,保证html2canvas截屏正常
     });
     this.renderer.setPixelRatio(window.devicePixelRatio); // 设置屏幕像素比
     this.renderer.setSize(window.innerWidth, window.innerHeight); // 设置渲染器宽高

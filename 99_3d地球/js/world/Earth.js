@@ -5,9 +5,10 @@ import {
   SphereGeometry, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3
 } from "three";
 import { gsap } from "gsap";
+import html2canvas from "html2canvas"
 
 
-import { createPointMesh, createLightPillar, createWaveMesh } from "../Utils/common.js";
+import { createPointMesh, createLightPillar, createWaveMesh, getCirclePoints, createAnimateLine, lon2xyz } from "../Utils/common.js";
 
 
 // 着色器相关代码
@@ -76,6 +77,8 @@ export default class Earth {
       this.createEarthGlow() // 创建地球辉光
       this.createEarthAperture() // 创建地球的大气层
       await this.createMarkupPoint() // 创建柱状点位
+      await this.createSpriteLabel() // 创建标签
+      this.createAnimateCircle() // 创建环绕卫星
       
       this.show()
       resolve()
@@ -367,6 +370,129 @@ export default class Earth {
     }))
   }
 
+  // 创建文字标签
+  async createSpriteLabel() {
+    await Promise.all(this.options.data.map(async item => {
+      let cityArry = [];
+      cityArry.push(item.startArray);
+      cityArry = cityArry.concat(...item.endArray);
+      await Promise.all(cityArry.map(async e => {
+        const p = lon2xyz(this.options.earth.radius * 1.001, e.E, e.N);
+        const div = `<div class="fire-div">${e.name}</div>`;
+        const shareContent = document.getElementById("html2canvas");
+        shareContent.innerHTML = div;
+        const opts = {
+          backgroundColor: null, // 背景透明
+          scale: 6,
+          dpi: window.devicePixelRatio,
+        };
+        const canvas = await html2canvas(document.getElementById("html2canvas"), opts)
+        const dataURL = canvas.toDataURL("image/png");
+        const map = new TextureLoader().load(dataURL);
+        const material = new SpriteMaterial({
+          map: map,
+          transparent: true,
+        });
+        const sprite = new Sprite(material);
+        const len = 5 + (e.name.length - 2) * 2;
+        sprite.scale.set(len, 3, 1);
+        sprite.position.set(p.x * 1.1, p.y * 1.1, p.z * 1.1);
+        this.earth.add(sprite);
+      }))
+    }))
+  }
+  
+  createAnimateCircle() {
+    // 创建 圆环 点
+    const list = getCirclePoints({
+      radius: this.options.earth.radius + 15,
+      number: 150, //切割数
+      closed: true, // 闭合
+    });
+    // 基本网格材质
+    const mat = new MeshBasicMaterial({
+      color: "#0c3172",
+      transparent: true,
+      opacity: 0.4,
+      side: DoubleSide,
+    });
+    const line = createAnimateLine({
+      pointList: list,
+      material: mat,
+      number: 100,
+      radius: 0.1,
+    });
+    this.earthGroup.add(line);
+
+    // 在clone两条线出来
+    const l2 = line.clone();
+    l2.scale.set(1.2, 1.2, 1.2);
+    l2.rotateZ(Math.PI / 6);
+    this.earthGroup.add(l2);
+
+    const l3 = line.clone();
+    l3.scale.set(0.8, 0.8, 0.8);
+    l3.rotateZ(-Math.PI / 6);
+    this.earthGroup.add(l3);
+
+    /**
+     * 旋转的球
+     */
+    const ball = new Mesh(
+      new SphereGeometry(this.options.satellite.size, 32, 32),
+      new MeshBasicMaterial({
+        color: "#e0b187", // 745F4D
+      })
+    );
+
+    const ball2 = new Mesh(
+      new SphereGeometry(this.options.satellite.size, 32, 32),
+      new MeshBasicMaterial({
+        color: "#628fbb", // 324A62
+      })
+    );
+
+    const ball3 = new Mesh(
+      new SphereGeometry(this.options.satellite.size, 32, 32),
+      new MeshBasicMaterial({
+        color: "#806bdf", //6D5AC4
+      })
+    );
+
+    this.circleLineList.push(line, l2, l3);
+    ball.name = ball2.name = ball3.name = "卫星";
+
+    for (let i = 0; i < this.options.satellite.number; i++) {
+      const ball01 = ball.clone();
+      // 一根线上总共有几个球，根据数量平均分布一下
+      const num = Math.floor(list.length / this.options.satellite.number)
+      ball01.position.set(
+        list[num * (i + 1)][0] * 1,
+        list[num * (i + 1)][1] * 1,
+        list[num * (i + 1)][2] * 1
+      );
+      line.add(ball01);
+
+      const ball02 = ball2.clone();
+      const num02 = Math.floor(list.length / this.options.satellite.number)
+      ball02.position.set(
+        list[num02 * (i + 1)][0] * 1,
+        list[num02 * (i + 1)][1] * 1,
+        list[num02 * (i + 1)][2] * 1
+      );
+      l2.add(ball02);
+
+      const ball03 = ball2.clone();
+      const num03 = Math.floor(list.length / this.options.satellite.number)
+      ball03.position.set(
+        list[num03 * (i + 1)][0] * 1,
+        list[num03 * (i + 1)][1] * 1,
+        list[num03 * (i + 1)][2] * 1
+      );
+      l3.add(ball03);
+    }
+  }
+
   // 显示动画
   show() {
     gsap.to(this.group.scale, {
@@ -403,5 +529,10 @@ export default class Earth {
         }
       });
     }
+
+    // 轨道卫星旋转
+    this.circleLineList.forEach((e) => {
+      e.rotateY(this.options.satellite.rotateSpeed);
+    });
   }
 }

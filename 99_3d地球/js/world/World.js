@@ -59,12 +59,12 @@ export default class World {
         rotateSpeed: 0.002,
         isRotation: true
       },
-      // satellite: {
-      //   show: true,
-      //   rotateSpeed: -0.01,
-      //   size: 1,
-      //   number: 2
-      // },
+      satellite: {
+        show: true,
+        rotateSpeed: -0.01,
+        size: 1,
+        number: 2
+      },
       punctuation: {
         circleColor: 0x3892ff,
         lightColumn: {
