@@ -6,12 +6,12 @@
 const filePath = './images/earth/'
 const fileSuffix = [
   'gradient',
-  'redCircle',
+  // 'redCircle',
   "label",
   "aperture",
   'glow',
   'light_column',
-  'aircraft'
+  // 'aircraft'
 ]
 
 const textures = fileSuffix.map(item => {
