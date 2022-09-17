@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - post processing - Outline Pass</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="./css/main.css">
+	</head>
+	<body>
+		<script type="importmap">
+			{
+				"imports": {
+          "three": "../node_modules/three/build/three.module.js",
+					"three/addons/": "../node_modules/three/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import Stats from 'three/addons/libs/stats.module.js';
+
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+      import useGui from "./js/gui.js";
+      import OutlineHighlight from "./js/outlineHighlight.js"
+
+      // 存储dom元素，canvas容器(container), 帧率显示dom容器(stats)
+			let container, stats;
+      // 三剑客+控制器
+			let camera, scene, renderer, controls;
+
+      // 高亮实例
+      let outlineHighlight = null;
+
+      // 选中的物体数组
+			let selectedObjects = [];
+
+      // raycasting（光线投射）。 光线投射用于进行鼠标拾取（在三维空间中计算出鼠标移过了什么物体）。
+			const raycaster = new THREE.Raycaster();
+      // 2维向量，用于存储鼠标位置
+			const mouse = new THREE.Vector2();
+      
+			const group = new THREE.Group();
+
+      // gui控制面板设定
+      const params = {
+        edgeStrength: 3.0,
+        edgeGlow: 0.0,
+        edgeThickness: 1.0,
+        pulsePeriod: 0,
+        rotate: false,
+        usePatternTexture: false
+      }
+      useGui(params)
+
+			init();
+			animate();
+
+			function init() {
+        // webgl canvas容器
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+        // 定义宽高
+				const width = window.innerWidth;
+				const height = window.innerHeight;
+
+        // 实例化渲染器
+				renderer = new THREE.WebGLRenderer();
+				renderer.shadowMap.enabled = true;
+				// todo - support pixelRatio in this demo
+				renderer.setSize( width, height );
+				document.body.appendChild( renderer.domElement );
+
+        // 场景
+				scene = new THREE.Scene();
+
+        // 相机
+				camera = new THREE.PerspectiveCamera( 45, width / height, 0.1, 100 );
+				camera.position.set( 0, 0, 8 );
+
+        // 控制器
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 5;
+				controls.maxDistance = 20;
+				controls.enablePan = false;
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.05;
+
+        // 环境光
+				scene.add( new THREE.AmbientLight( 0xaaaaaa, 0.2 ) );
+
+        // 平行光
+				const light = new THREE.DirectionalLight( 0xddffdd, 0.6 );
+				light.position.set( 1, 1, 1 );
+				light.castShadow = true;
+				light.shadow.mapSize.width = 1024;
+				light.shadow.mapSize.height = 1024;
+
+				const d = 10;
+
+				light.shadow.camera.left = - d;
+				light.shadow.camera.right = d;
+				light.shadow.camera.top = d;
+				light.shadow.camera.bottom = - d;
+				light.shadow.camera.far = 1000;
+
+				scene.add( light );
+
+				scene.add( group );
+
+
+        // 随机创建模型对象20个
+				const geometry = new THREE.SphereGeometry( 3, 48, 24 );
+
+				for ( let i = 0; i < 20; i ++ ) {
+
+					const material = new THREE.MeshLambertMaterial();
+					material.color.setHSL( Math.random(), 1.0, 0.3 );
+
+					const mesh = new THREE.Mesh( geometry, material );
+					mesh.position.x = Math.random() * 4 - 2;
+					mesh.position.y = Math.random() * 4 - 2;
+					mesh.position.z = Math.random() * 4 - 2;
+					mesh.receiveShadow = true;
+					mesh.castShadow = true;
+					mesh.scale.multiplyScalar( Math.random() * 0.3 + 0.1 );
+					group.add( mesh );
+
+				}
+
+				const floorMaterial = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide } );
+
+				const floorGeometry = new THREE.PlaneGeometry( 12, 12 );
+				const floorMesh = new THREE.Mesh( floorGeometry, floorMaterial );
+				floorMesh.rotation.x -= Math.PI * 0.5;
+				floorMesh.position.y -= 1.5;
+				group.add( floorMesh );
+				floorMesh.receiveShadow = true;
+
+        // 实例化帧率显示工具，并添加到container中
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+        // 初始化高亮相关代码
+        outlineHighlight = new OutlineHighlight({ camera, scene, renderer });
+
+        // 监听窗口大小改变
+				window.addEventListener( 'resize', onWindowResize );
+
+				renderer.domElement.style.touchAction = 'none';
+				renderer.domElement.addEventListener( 'pointermove', onPointerMove );
+
+				function onPointerMove( event ) {
+
+					// if ( event.isPrimary === false ) return;
+
+					mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+					mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+					checkIntersection();
+
+				}
+
+				function addSelectedObject( object ) {
+
+					selectedObjects = [];
+					selectedObjects.push( object );
+
+				}
+
+				function checkIntersection() {
+
+					raycaster.setFromCamera( mouse, camera );
+
+					const intersects = raycaster.intersectObject( scene, true );
+
+					if ( intersects.length > 0 ) {
+
+						const selectedObject = intersects[ 0 ].object;
+						addSelectedObject( selectedObject );
+						outlineHighlight.outlinePass.selectedObjects = selectedObjects;
+
+					} else {
+
+						// outlinePass.selectedObjects = [];
+
+					}
+
+				}
+
+			}
+
+			function onWindowResize() {
+
+				const width = window.innerWidth;
+				const height = window.innerHeight;
+
+				camera.aspect = width / height;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( width, height );
+				outlineHighlight.composer.setSize( width, height );
+
+				effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				stats.begin();
+
+				const timer = performance.now();
+
+				if ( params.rotate ) {
+
+					group.rotation.y = timer * 0.0001;
+
+				}
+
+				controls.update();
+
+				outlineHighlight.composer.render();
+
+				stats.end();
+
+			}
+
+		</script>
+	</body>
+</html>
