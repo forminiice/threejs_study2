@@ -400,6 +400,12 @@ export default class Earth {
         sprite.scale.set(len, 3, 1);
         sprite.position.set(p.x * 1.1, p.y * 1.1, p.z * 1.1);
         this.earth.add(sprite);
+
+        // 修改材质颜色测试
+        // setTimeout(() => {
+        //   console.log("111")
+        //   material.color = new Color( 0xffff00 )
+        // }, 10000);
       }))
     }))
   }
