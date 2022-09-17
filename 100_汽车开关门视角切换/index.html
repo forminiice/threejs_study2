@@ -268,7 +268,7 @@
 				carTween.start();
 			}
 
-      // 车门开关动画
+      // 车门开关动画(模型旋转中心点在三维软件中对模型编辑好了)
 			function setupTweenDoor(source, target, mesh) {
 				const carTween = new TWEEN.Tween(source).to(target, 1000).easing(TWEEN.Easing.Quadratic.Out);
 				carTween.onUpdate(function(that) {
