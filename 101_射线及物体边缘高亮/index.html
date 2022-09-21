@@ -5,6 +5,17 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<link type="text/css" rel="stylesheet" href="./css/main.css">
+    <style>
+      .info-window {
+        width: 200px;
+        height: 200px;
+        border: 1px solid #000;
+        border-radius: 3px;
+        background-color: rgba(0,0,0,.3);
+        /* pointer-events: all; */
+        transform: translate(50%, -50%);
+      }
+    </style>
 	</head>
 	<body>
 		<script type="importmap">
@@ -24,14 +35,19 @@
 
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 			import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+			import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
       import useGui from "./js/gui.js";
       import OutlineHighlight from "./js/outlineHighlight.js"
+      import CSS2DLabel from "./js/CSS2DLabel.js"
 
-      // 存储dom元素，canvas容器(container), 帧率显示dom容器(stats)
-			let container, stats;
+      // 帧率显示实例(stats)
+			let stats;
       // 三剑客+控制器
 			let camera, scene, renderer, controls;
+      
+      // css2d渲染实例
+      let css2DLabel;
 
       // 高亮实例
       let outlineHighlight = null;
@@ -61,9 +77,6 @@
 			animate();
 
 			function init() {
-        // webgl canvas容器
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
 
         // 定义宽高
 				const width = window.innerWidth;
@@ -71,6 +84,7 @@
 
         // 实例化渲染器
 				renderer = new THREE.WebGLRenderer();
+        css2DLabel = new CSS2DLabel()
 				renderer.shadowMap.enabled = true;
 				// todo - support pixelRatio in this demo
 				renderer.setSize( width, height );
@@ -113,6 +127,8 @@
 
 				scene.add( group );
 
+        const label = css2DLabel.createLabel(scene);
+        scene.add( label );
 
         // 随机创建模型对象20个
 				const geometry = new THREE.SphereGeometry( 3, 48, 24 );
@@ -142,9 +158,9 @@
 				group.add( floorMesh );
 				floorMesh.receiveShadow = true;
 
-        // 实例化帧率显示工具，并添加到container中
+        // 实例化帧率显示工具，并添加到页面中
 				stats = new Stats();
-				container.appendChild( stats.dom );
+				document.body.appendChild( stats.dom );
 
         // 初始化高亮相关代码
         outlineHighlight = new OutlineHighlight({ camera, scene, renderer });
@@ -185,8 +201,19 @@
 						addSelectedObject( selectedObject );
 						outlineHighlight.outlinePass.selectedObjects = selectedObjects;
 
-					} else {
+            // 这里添加窗口信息（css2drenderer）
+            // console.log("selectedObject", selectedObject)
+            label.visible = true;
+            label.element.innerHTML = `
+              <div class="info-window">
+                uuid: ${selectedObject.uuid}
+              </div>
+            `
+            // label.position.copy(selectedObject.position)
+            label.position.copy(css2DLabel.screenCoordToWorld(mouse, camera))
 
+					} else {
+            label.visible = false;
 						// outlinePass.selectedObjects = [];
 
 					}
@@ -204,6 +231,8 @@
 				camera.updateProjectionMatrix();
 
 				renderer.setSize( width, height );
+        // labelRenderer.setSize( width, height );
+        css2DLabel.renderer.setSize( width, height );
 				outlineHighlight.composer.setSize( width, height );
 
 				effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
@@ -227,6 +256,7 @@
 				controls.update();
 
 				outlineHighlight.composer.render();
+        css2DLabel.renderer.render( scene, camera );
 
 				stats.end();
 
