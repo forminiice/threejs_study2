@@ -7,8 +7,6 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 export default class OutLineHighlight {
   constructor(option) {
-    // 2维向量，用于存储鼠标位置
-    this.mouse = new THREE.Vector2();
     this.effectFXAA = null
     this.outlinePass = null
 
